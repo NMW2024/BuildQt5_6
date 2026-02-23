@@ -65,8 +65,6 @@ jobs:
             -release ^
             -platform win32-msvc2019 ^
             -prefix %CD%\qt-install ^
-            -no-qml ^
-            -no-network ^
             -no-opengl ^
             -skip qt3d ^
             -skip qtactiveqt ^
