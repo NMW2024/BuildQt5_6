@@ -20,35 +20,51 @@ jobs:
       #- name: Install jom (Qt parallel build tool)
       #  run: choco install jom --source="https://community.chocolatey.org/api/v2/" --force
       #  shell: powershell
-      - name: Install jom (manual download)
+      - name: Install jom (robust manual download)
         run: |
-          # 创建安装目录
-          mkdir -Force C:\tools\jom
+          # 1. 创建基础目录
+          $installDir = "C:\tools\jom"
+          mkdir -Force $installDir
           
-          # 下载官方 jom (使用 Invoke-WebRequest + 重试)
+          # 2. 下载 jom.zip（带重试）
+          $zipPath = "$installDir\jom.zip"
           $url = "https://ftp.funet.fi/pub/mirrors/download.qt-project.org/official_releases/jom/jom.zip"
           $maxRetries = 3
-          $retryCount = 0
-          while ($retryCount -lt $maxRetries) {
+          for ($i = 1; $i -le $maxRetries; $i++) {
             try {
-              Invoke-WebRequest -Uri $url -OutFile "C:\tools\jom\jom.zip" -UseBasicParsing -ErrorAction Stop
+              Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing -ErrorAction Stop
+              Write-Host "✓ Downloaded jom.zip (attempt $i)"
               break
             } catch {
-              $retryCount++
-              if ($retryCount -eq $maxRetries) { throw }
-              Start-Sleep -Seconds (2 * $retryCount)
+              if ($i -eq $maxRetries) { throw "Download failed after $maxRetries attempts: $_" }
+              Write-Host "⚠ Attempt $i failed, retrying in $($i*2)s..."
+              Start-Sleep -Seconds ($i * 2)
             }
           }
           
-          # 解压
-          Expand-Archive -Path "C:\tools\jom\jom.zip" -DestinationPath "C:\tools\jom" -Force
+          # 3. 解压
+          Expand-Archive -Path $zipPath -DestinationPath $installDir -Force
           
-          # 添加到 PATH (当前 job 会话)
-          echo "C:\tools\jom" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          # 4. 🔑 关键：自动查找 jom.exe 所在目录
+          $jomExe = Get-ChildItem -Path $installDir -Recurse -Filter "jom.exe" -File | Select-Object -First 1
+          if (-not $jomExe) {
+            throw "jom.exe not found in $installDir. Contents: $(Get-ChildItem $installDir -Recurse | Format-Table | Out-String)"
+          }
+          $jomBinDir = $jomExe.Directory.FullName
+          Write-Host "✓ Found jom.exe at: $jomBinDir"
           
-          # 验证
+          # 5. 将正确目录添加到 PATH（GitHub Actions 专用）
+          echo "$jomBinDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Host "✓ Added $jomBinDir to PATH"
+          
+          # 6. 当前会话立即生效（可选，用于本 step 内验证）
+          $env:PATH = "$jomBinDir;$env:PATH"
+          
+          # 7. 验证
+          Write-Host "=== jom version ==="
           jom --version
         shell: pwsh
+        id: install-jom  # 添加 ID 便于引用
 
       - name: Setup MSVC 2022 x64 development environment
         uses: ilammy/msvc-dev-cmd@v1
