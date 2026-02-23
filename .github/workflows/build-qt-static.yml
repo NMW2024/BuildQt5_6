@@ -103,7 +103,7 @@ jobs:
         shell: cmd
 
       - name: Upload artifacts (headers, libs, tools)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: qt-5.12.12-static-msvc2019-x64
           path: qt-src/qt-install
