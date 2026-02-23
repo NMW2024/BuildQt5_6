@@ -64,7 +64,6 @@ jobs:
             -static-runtime ^
             -release ^
             -platform win32-msvc2019 ^
-            -target x64 ^
             -prefix %CD%\qt-install ^
             -no-qml ^
             -no-network ^
