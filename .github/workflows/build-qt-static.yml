@@ -68,6 +68,7 @@ jobs:
             -skip qtcharts ^
             -skip qtconnectivity ^
             -skip qtdatavis3d ^
+            -skip qtquick3d ^
             -skip qtdeclarative ^ 
             -skip qtgamepad ^
             -skip qtlocation ^
