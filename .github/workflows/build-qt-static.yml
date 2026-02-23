@@ -40,7 +40,7 @@ jobs:
           choco install perl -y
           # 运行构建脚本
           powershell -ExecutionPolicy Bypass -File scripts/build-qt.ps1 -QtVersion ${{ matrix.qt-version }}
-        shell: cmd
+        shell: pwsh
 
       - name: Verify Build
         run: |
