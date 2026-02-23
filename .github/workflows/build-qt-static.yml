@@ -58,10 +58,8 @@ jobs:
             -static ^
             -static-runtime ^
             -release ^
-            -platform win32-msvc2022 ^
+            -platform win32-msvc ^
             -prefix %CD%\qt-install ^
-            -no-opengl ^
-            -skip qt3d ^
         shell: cmd
 
       - name: Build and install Qt
