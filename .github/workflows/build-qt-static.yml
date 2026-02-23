@@ -18,7 +18,7 @@ jobs:
         shell: powershell
 
       - name: Install jom (Qt parallel build tool)
-        run: choco install jom --no-progress
+        run: choco install jom --no-progress --pre
         shell: powershell
 
       - name: Setup MSVC 2022 x64 development environment
