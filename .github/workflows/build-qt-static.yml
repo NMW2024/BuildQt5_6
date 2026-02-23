@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2019 # 使用 2019 兼容性更好，VS2019
+    runs-on: windows-2022 # 使用 2019 兼容性更好，VS2019
     strategy:
       matrix:
         # 你可以按需添加版本
