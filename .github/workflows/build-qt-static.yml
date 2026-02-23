@@ -70,24 +70,7 @@ jobs:
             -skip qtdatavis3d ^
             -skip qtquick3d ^
             -skip qtwebengine ^
-            -skip qtdeclarative ^ 
-            -skip qtgamepad ^
-            -skip qtlocation ^
-            -skip qtmacextras ^
-            -skip qtmultimedia ^
-            -skip qtnetworkauth ^
-            -skip qtpurchasing ^
-            -skip qtremoteobjects ^
-            -skip qtsensors ^
-            -skip qtserialbus ^
-            -skip qtserialport ^
-            -skip qtspeech ^
-            -skip qttranslations ^
-            -skip qtwayland ^
-            -skip qtwebchannel ^
-            -skip qtwebengine ^
-            -skip qtwebview ^
-            -skip qtx11extras
+            -skip qtdeclarative
         shell: cmd
 
       - name: Build and install Qt
