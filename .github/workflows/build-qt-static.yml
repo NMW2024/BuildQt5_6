@@ -69,6 +69,7 @@ jobs:
             -skip qtconnectivity ^
             -skip qtdatavis3d ^
             -skip qtquick3d ^
+            -skip qtwebengine ^
             -skip qtdeclarative ^ 
             -skip qtgamepad ^
             -skip qtlocation ^
