@@ -1,58 +1,103 @@
-name: Build Static Qt (Windows)
+name: Build Qt 5.12 Static Library (MSVC 2019, No QML/Network)
 
 on:
-  workflow_dispatch: # 允许手动触发
+  workflow_dispatch:
   push:
-    tags:
-      - 'qt-build-*' # 推送特定标签时触发
+    branches: [ main ]
 
 jobs:
-  build:
-    runs-on: windows-2022 # 使用 2019 兼容性更好，VS2019
-    strategy:
-      matrix:
-        # 你可以按需添加版本
-        qt-version: [5.15.2, 6.5.3]
-    
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+  build-qt-static:
+    runs-on: windows-2019
 
-      - name: Setup MSVC
+    steps:
+      - name: Checkout repository (dummy step)
+        run: echo "No need to checkout, will download Qt source directly"
+
+      - name: Install Perl (Strawberry Perl)
+        run: choco install strawberryperl --no-progress
+        shell: powershell
+
+      - name: Install jom (Qt parallel build tool)
+        run: choco install jom --no-progress
+        shell: powershell
+
+      - name: Setup MSVC 2019 x64 development environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Setup Cache
-        id: cache-qt
-        uses: actions/cache@v3
-        with:
-          path: C:\Qt\Static
-          # 缓存键包含版本号，不同版本不共用缓存
-          key: qt-static-${{ matrix.qt-version }}-${{ hashFiles('scripts/build-qt.ps1') }}
-          restore-keys: |
-            qt-static-${{ matrix.qt-version }}-
-
-      - name: Build Qt Static
-        if: steps.cache-qt.outputs.cache-hit != 'true'
+      - name: Download Qt 5.12.12 source code
         run: |
-          # 安装 Perl (Qt5 构建需要)
-          choco install perl -y
-          # 运行构建脚本
-          powershell -ExecutionPolicy Bypass -File scripts/build-qt.ps1 -QtVersion ${{ matrix.qt-version }}
-        shell: pwsh
+          curl -L -o qt-everywhere-src-5.12.12.zip ^
+            https://download.qt.io/official_releases/qt/5.12/5.12.12/single/qt-everywhere-src-5.12.12.zip
+        shell: cmd
 
-      - name: Verify Build
+      - name: Extract source code
         run: |
-          dir C:\Qt\Static\lib
-          # 检查是否有静态库文件 (.lib)
-          if (Test-Path "C:\Qt\Static\lib\Qt5Core.lib") { Write-Host "Qt5 Found" }
-          if (Test-Path "C:\Qt\Static\lib\Qt6Core.lib") { Write-Host "Qt6 Found" }
-        shell: pwsh
+          7z x qt-everywhere-src-5.12.12.zip -oqt-src -y
+        shell: cmd
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      - name: Configure Qt build
+        working-directory: qt-src
+        run: |
+          call configure.bat ^
+            -static ^
+            -static-runtime ^
+            -release ^
+            -platform win32-msvc2019 ^
+            -target x64 ^
+            -prefix %CD%\qt-install ^
+            -no-qml ^
+            -no-network ^
+            -no-opengl ^
+            -no-sql-ibase -no-sql-mysql -no-sql-odbc -no-sql-psql -no-sql-sqlite -no-sql-tds ^
+            -skip qt3d ^
+            -skip qtactiveqt ^
+            -skip qtandroidextras ^
+            -skip qtcanvas3d ^
+            -skip qtcharts ^
+            -skip qtconnectivity ^
+            -skip qtdatavis3d ^
+            -skip qtdeclarative ^
+            -skip qtdoc ^
+            -skip qtgamepad ^
+            -skip qtgraphicaleffects ^
+            -skip qtlocation ^
+            -skip qtmacextras ^
+            -skip qtmultimedia ^
+            -skip qtnetworkauth ^
+            -skip qtpurchasing ^
+            -skip qtquickcontrols ^
+            -skip qtquickcontrols2 ^
+            -skip qtremoteobjects ^
+            -skip qtscript ^
+            -skip qtscxml ^
+            -skip qtsensors ^
+            -skip qtserialbus ^
+            -skip qtserialport ^
+            -skip qtspeech ^
+            -skip qttranslations ^
+            -skip qtvirtualkeyboard ^
+            -skip qtwayland ^
+            -skip qtwebchannel ^
+            -skip qtwebengine ^
+            -skip qtwebview ^
+            -skip qtx11extras ^
+            -skip qtxmlpatterns ^
+            -skip qtimageformats ^
+            -skip qtsvg ^
+            -skip qttools        # if qmake/moc etc. are not needed, keep this; remove if needed
+        shell: cmd
+
+      - name: Build and install Qt
+        working-directory: qt-src
+        run: |
+          jom -j %NUMBER_OF_PROCESSORS%
+          jom install
+        shell: cmd
+
+      - name: Upload artifacts (headers, libs, tools)
+        uses: actions/upload-artifact@v3
         with:
-          name: qt-static-${{ matrix.qt-version }}-windows
-          path: C:\Qt\Static
-          retention-days: 90
+          name: qt-5.12.12-static-msvc2019-x64
+          path: qt-src/qt-install
