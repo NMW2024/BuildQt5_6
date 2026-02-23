@@ -63,6 +63,7 @@ jobs:
             -no-opengl ^
             -skip qt3d ^
             -skip qtactiveqt ^
+            -skip qtquicktimeline ^
             -skip qtandroidextras ^
             -skip qtcharts ^
             -skip qtconnectivity ^
@@ -84,8 +85,7 @@ jobs:
             -skip qtwebchannel ^
             -skip qtwebengine ^
             -skip qtwebview ^
-            -skip qtx11extras ^
-            -skip qtquicktimeline
+            -skip qtx11extras
         shell: cmd
 
       - name: Build and install Qt
