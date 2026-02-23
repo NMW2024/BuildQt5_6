@@ -54,7 +54,9 @@ jobs:
       - name: Configure Qt build
         working-directory: ${{ env.QT_SOURCE_DIR }}
         run: |
-          call configure.bat ^
+          mkdir build
+          cd build
+          call ../configure.bat ^
             -static ^
             -static-runtime ^
             -release ^
@@ -65,12 +67,12 @@ jobs:
       - name: Build and install Qt
         working-directory: ${{ env.QT_SOURCE_DIR }}
         run: |
-          jom -j %NUMBER_OF_PROCESSORS%
-          jom install
-        shell: cmd
+          cmake --build . --config Release -j$(nproc)
+          cmake --install . --config Release --prefix "%CD%\..\qt-install"
+          if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
 
-      - name: Upload artifacts (headers, libs, tools)
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qt-6.5.3-static-msvc2022-x64  
-          path: ${{ env.QT_SOURCE_DIR }}\qt-install
+          name: qt-6.5.3-static-msvc2022-x64
+          path: ${{ github.workspace }}\qt-install
