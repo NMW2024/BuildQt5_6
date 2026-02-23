@@ -43,25 +43,18 @@ jobs:
           7z x qt-everywhere-src-5.12.12.zip -oqt-src -y
         shell: cmd
 
-      - name: Find Qt source directory (where configure.bat is located)
-        id: find_qt_src
+      - name: Find Qt source directory and set environment variable
         run: |
-          cd qt-src
-          if exist configure.bat (
-            echo "configure.bat found in current directory"
-            echo "QT_SOURCE_DIR=%CD%" >> %GITHUB_ENV%
-          ) else (
-            for /d %%i in (*) do (
-              if exist "%%i\configure.bat" (
-                cd "%%i"
-                echo "configure.bat found in %%i"
-                echo "QT_SOURCE_DIR=%CD%" >> %GITHUB_ENV%
-                exit /b 0
-              )
-            )
-            echo "Error: configure.bat not found" && exit /b 1
-          )
-        shell: cmd
+          $extractedDir = Get-ChildItem -Path "qt-src" -Directory | Where-Object { Test-Path "$($_.FullName)\configure.bat" } | Select-Object -First 1
+          if ($extractedDir) {
+            $qtSourceDir = $extractedDir.FullName
+            echo "QT_SOURCE_DIR=$qtSourceDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            echo "Found configure.bat in $qtSourceDir"
+          } else {
+            Write-Error "configure.bat not found in qt-src subdirectories"
+            exit 1
+          }
+        shell: pwsh
 
       - name: Configure Qt build
         working-directory: ${{ env.QT_SOURCE_DIR }}
@@ -76,7 +69,6 @@ jobs:
             -no-qml ^
             -no-network ^
             -no-opengl ^
-            -no-sql-ibase -no-sql-mysql -no-sql-odbc -no-sql-psql -no-sql-sqlite -no-sql-tds ^
             -skip qt3d ^
             -skip qtactiveqt ^
             -skip qtandroidextras ^
@@ -85,7 +77,6 @@ jobs:
             -skip qtconnectivity ^
             -skip qtdatavis3d ^
             -skip qtdeclarative ^
-            -skip qtdoc ^
             -skip qtgamepad ^
             -skip qtgraphicaleffects ^
             -skip qtlocation ^
@@ -96,23 +87,16 @@ jobs:
             -skip qtquickcontrols ^
             -skip qtquickcontrols2 ^
             -skip qtremoteobjects ^
-            -skip qtscript ^
-            -skip qtscxml ^
             -skip qtsensors ^
             -skip qtserialbus ^
             -skip qtserialport ^
             -skip qtspeech ^
             -skip qttranslations ^
-            -skip qtvirtualkeyboard ^
             -skip qtwayland ^
             -skip qtwebchannel ^
             -skip qtwebengine ^
             -skip qtwebview ^
             -skip qtx11extras ^
-            -skip qtxmlpatterns ^
-            -skip qtimageformats ^
-            -skip qtsvg ^
-            -skip qttools
         shell: cmd
 
       - name: Build and install Qt
