@@ -25,7 +25,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          vsversion: '2022'   # 改为 Visual Studio 2022 工具链
+          vsversion: '2022'  
 
       - name: Download Qt 6.5.3 source code
         run: |
@@ -58,7 +58,7 @@ jobs:
             -static ^
             -static-runtime ^
             -release ^
-            -platform win32-msvc2022 ^   # 改为 MSVC 2022
+            -platform win32-msvc2022 ^
             -prefix %CD%\qt-install ^
             -no-opengl ^
             -skip qt3d ^
@@ -67,7 +67,7 @@ jobs:
             -skip qtcharts ^
             -skip qtconnectivity ^
             -skip qtdatavis3d ^
-            -skip qtdeclarative ^        # 跳过QML相关（qtdeclarative包含QtQml/QtQuick）
+            -skip qtdeclarative ^ 
             -skip qtgamepad ^
             -skip qtlocation ^
             -skip qtmacextras ^
@@ -97,5 +97,5 @@ jobs:
       - name: Upload artifacts (headers, libs, tools)
         uses: actions/upload-artifact@v4
         with:
-          name: qt-6.5.3-static-msvc2022-x64   # 更新artifact名称
+          name: qt-6.5.3-static-msvc2022-x64  
           path: ${{ env.QT_SOURCE_DIR }}\qt-install
