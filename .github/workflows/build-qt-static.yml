@@ -1,4 +1,4 @@
-name: Build Qt 5.12 Static Library (MSVC 2019, No QML/Network)
+name: Build Qt 5.12 Static Library (MSVC 2019, No QML/Network) on windows-2022
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-qt-static:
-    runs-on: windows-2019
+    runs-on: windows-2022   # 使用 windows-2022 镜像
 
     steps:
       - name: Checkout repository (dummy step)
@@ -21,10 +21,16 @@ jobs:
         run: choco install jom --no-progress
         shell: powershell
 
+      - name: Install Visual Studio 2019 Build Tools
+        run: |
+          choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64" --no-progress
+        shell: powershell
+
       - name: Setup MSVC 2019 x64 development environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+          vsversion: '2019'   # 强制使用 Visual Studio 2019 工具链
 
       - name: Download Qt 5.12.12 source code
         run: |
