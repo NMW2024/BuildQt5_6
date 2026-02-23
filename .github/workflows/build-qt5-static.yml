@@ -1,0 +1,68 @@
+name: Build Qt5 Static
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  QT_VERSION: 5.15.2
+  QT_INSTALL_DIR: D:/Qt5Static
+  BUILD_TYPE: Release
+
+jobs:
+  build-qt5:
+    name: Build Qt5 Static (${{ matrix.msvc }})
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        msvc: [2019, 2022]
+      fail-fast: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          toolset: ${{ matrix.msvc }}
+
+      - name: Restore Qt Cache
+        id: cache-qt
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.QT_INSTALL_DIR }}
+          key: qt5-${{ env.QT_VERSION }}-static-${{ matrix.msvc }}-${{ hashFiles('qt5-modules.txt', 'scripts/build-qt5-static.bat') }}
+          restore-keys: |
+            qt5-${{ env.QT_VERSION }}-static-${{ matrix.msvc }}-
+
+      - name: Install Dependencies
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        run: |
+          choco install -y python3 perl strawberryperl --no-progress
+          echo "C:\Strawberry\perl\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Download Qt Source
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        run: |
+          mkdir qt-src
+          cd qt-src
+          git clone --depth 1 --branch v${{ env.QT_VERSION }} https://code.qt.io/qt/qt5.git .
+          perl init-repository.bat -f --module-subset=qtbase,qtdeclarative,qtconnectivity,qtlocation,qtwebsockets,qtwebchannel,qt3d,qtimageformats,qtsvg,qtscript,qttools,qttranslations,qtwinextras,qtactiveqt,qtxmlpatterns
+
+      - name: Build Qt5 Static
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          call scripts\build-qt5-static.bat ${{ env.QT_VERSION }} ${{ env.QT_INSTALL_DIR }} ${{ env.BUILD_TYPE }}
+
+      - name: Upload Qt Build
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt5-static-${{ matrix.msvc }}
+          path: ${{ env.QT_INSTALL_DIR }}
+          retention-days: 7
