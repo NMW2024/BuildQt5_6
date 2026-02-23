@@ -1,7 +1,10 @@
+# scripts/build-qt.ps1
+# Fixed version: English comments, UTF-8 compatible, correct package names
+
+# Ensure UTF-8 output encoding to avoid garbled Chinese characters
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $PSDefaultParameterValues['*:Encoding'] = 'utf8'
 
-# scripts/build-qt.ps1
 param(
     [string]$QtVersion = "5.15.2",
     [string]$InstallDir = "C:\Qt\Static"
@@ -9,83 +12,133 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# 1. 环境检查
-Write-Host "=== 检查环境 ==="
+# ============================================================
+# 1. Install prerequisites (Perl is required for Qt5 build)
+# ============================================================
+Write-Host "=== Checking prerequisites ==="
+
+# Install Strawberry Perl if Qt5 (required for qmake/moc)
+if ($QtVersion -like "5.*") {
+    Write-Host "=== Installing Strawberry Perl (required for Qt5) ==="
+    # Fix: use 'strawberryperl' not 'perl', and remove trailing spaces in URL
+    choco install strawberryperl -y --source="https://community.chocolatey.org/api/v2/"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to install Strawberry Perl"
+        exit 1
+    }
+    refreshenv  # Refresh PATH so perl is available immediately
+}
+
+# Install Ninja build tool
 if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
-    Write-Host "安装 Ninja..."
+    Write-Host "=== Installing Ninja ==="
     choco install ninja -y
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to install Ninja"
+        exit 1
+    }
+    refreshenv
 }
 
-# 2. 下载源码
-# Qt 5.15 和 Qt 6.x 的源码结构略有不同，这里采用通用性较好的 qtbase 单独克隆
-# 对于生产环境，建议 Qt5 使用 init-repository，但为了 CI 速度，我们只克隆 qtbase (包含 Widgets, Sql, Json)
-Write-Host "=== 下载 Qt 源码 (Version: $QtVersion) ==="
+# Install Git if not present
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "=== Installing Git ==="
+    choco install git -y
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to install Git"
+        exit 1
+    }
+    refreshenv
+}
+
+# ============================================================
+# 2. Download Qt source code
+# ============================================================
+Write-Host "=== Downloading Qt source (Version: $QtVersion) ==="
 $SourceDir = "C:\qt-src"
-if (Test-Path $SourceDir) { Remove-Item -Recurse -Force $SourceDir }
-
-# 确定分支/标签
-$Branch = "v$QtVersion"
-if ($QtVersion -like "6.*") {
-    $RepoUrl = "https://github.com/qt/qtbase.git"
-} else {
-    # Qt 5 有时候标签是 v5.15.2，有时候是 5.15.2，尝试通用处理
-    $RepoUrl = "https://github.com/qt/qtbase.git"
+if (Test-Path $SourceDir) { 
+    Remove-Item -Recurse -Force $SourceDir 
 }
 
+# Determine branch/tag name
+$Branch = "v$QtVersion"
+# Fix: removed trailing spaces in URL (was "https://...git  ")
+$RepoUrl = "https://github.com/qt/qtbase.git"
+
+# Try cloning with v-prefixed tag first, then without prefix (Qt5 compatibility)
 git clone --depth 1 --branch $Branch $RepoUrl $SourceDir
 if ($LASTEXITCODE -ne 0) { 
-    # 如果 v 前缀失败，尝试无前缀 (Qt5 某些版本)
-    git clone --depth 1 --branch $QtVersion $RepoUrl $SourceDir 
+    Write-Host "Trying without 'v' prefix..."
+    git clone --depth 1 --branch $QtVersion $RepoUrl $SourceDir
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to clone Qt repository. Check version tag: $QtVersion"
+        exit 1
+    }
 }
 
-# 3. 配置编译选项
-Write-Host "=== 配置 Qt (Static, Release, No Network/QML) ==="
+# ============================================================
+# 3. Configure Qt build options
+# ============================================================
+Write-Host "=== Configuring Qt (Static, Release, Minimal) ==="
 Set-Location $SourceDir
 
-# 核心配置参数
-# -static: 静态库
-# -release: 发布版
-# -opensource -confirm-license: 自动同意协议
-# -nomake examples/tests: 不编译示例和测试，节省大量时间
-# -no-openssl: 不需要网络 SSL 功能
-# -sql-sqlite: 启用 SQLite 支持 (内置)
-# -skip: 跳过不需要的模块 (Qt6 语法)
+# Core configuration arguments
 $ConfigureArgs = @(
     "-static",
-    "-release",
+    "-release", 
     "-opensource",
     "-confirm-license",
     "-nomake", "examples",
     "-nomake", "tests",
-    "-no-openssl",
-    "-sql-sqlite",
+    "-no-openssl",      # Skip OpenSSL dependency
+    "-sql-sqlite",      # Enable built-in SQLite
     "-prefix", $InstallDir,
     "-install-prefix", $InstallDir
 )
 
-# Qt 6 需要额外跳过一些模块以加快速度
+# Qt6-specific adjustments
 if ($QtVersion -like "6.*") {
     $ConfigureArgs += "-skip", "qtshadertools"
     $ConfigureArgs += "-skip", "qttranslations"
+    $ConfigureArgs += "-skip", "qtdeclarative"  # Skip QML if not needed
 }
 
-# 执行配置
+# Execute configure script
 Write-Host "Running: configure.bat $ConfigureArgs"
 ./configure.bat $ConfigureArgs
-if ($LASTEXITCODE -ne 0) { throw "Qt Configure Failed" }
+if ($LASTEXITCODE -ne 0) { 
+    Write-Error "Qt configuration failed. Check logs above."
+    exit 1 
+}
 
-# 4. 编译
-Write-Host "=== 开始编译 (使用 Ninja) ==="
-# 使用 ninja 比 nmake 快很多
+# ============================================================
+# 4. Build Qt with Ninja
+# ============================================================
+Write-Host "=== Starting build (using Ninja) ==="
 ninja
-if ($LASTEXITCODE -ne 0) { throw "Qt Build Failed" }
+if ($LASTEXITCODE -ne 0) { 
+    Write-Error "Qt build failed"
+    exit 1 
+}
 
-# 5. 安装
-Write-Host "=== 安装到 $InstallDir ==="
+# ============================================================
+# 5. Install to target directory
+# ============================================================
+Write-Host "=== Installing to $InstallDir ==="
 ninja install
-if ($LASTEXITCODE -ne 0) { throw "Qt Install Failed" }
+if ($LASTEXITCODE -ne 0) { 
+    Write-Error "Qt installation failed"
+    exit 1 
+}
 
-# 6. 清理 (保留安装目录，删除源码以节省空间)
+# ============================================================
+# 6. Cleanup source directory to save space
+# ============================================================
 Set-Location C:\
-Remove-Item -Recurse -Force $SourceDir
-Write-Host "=== 编译完成 ==="
+if (Test-Path $SourceDir) {
+    Remove-Item -Recurse -Force $SourceDir
+    Write-Host "=== Cleaned up source directory ==="
+}
+
+Write-Host "=== Build completed successfully ==="
+Write-Host "Qt $QtVersion installed to: $InstallDir"
