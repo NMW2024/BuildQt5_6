@@ -1,3 +1,6 @@
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$PSDefaultParameterValues['*:Encoding'] = 'utf8'
+
 # scripts/build-qt.ps1
 param(
     [string]$QtVersion = "5.15.2",
