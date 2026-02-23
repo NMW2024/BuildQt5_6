@@ -43,8 +43,28 @@ jobs:
           7z x qt-everywhere-src-5.12.12.zip -oqt-src -y
         shell: cmd
 
+      - name: Find Qt source directory (where configure.bat is located)
+        id: find_qt_src
+        run: |
+          cd qt-src
+          if exist configure.bat (
+            echo "configure.bat found in current directory"
+            echo "QT_SOURCE_DIR=%CD%" >> %GITHUB_ENV%
+          ) else (
+            for /d %%i in (*) do (
+              if exist "%%i\configure.bat" (
+                cd "%%i"
+                echo "configure.bat found in %%i"
+                echo "QT_SOURCE_DIR=%CD%" >> %GITHUB_ENV%
+                exit /b 0
+              )
+            )
+            echo "Error: configure.bat not found" && exit /b 1
+          )
+        shell: cmd
+
       - name: Configure Qt build
-        working-directory: qt-src
+        working-directory: ${{ env.QT_SOURCE_DIR }}
         run: |
           call configure.bat ^
             -static ^
@@ -92,11 +112,11 @@ jobs:
             -skip qtxmlpatterns ^
             -skip qtimageformats ^
             -skip qtsvg ^
-            -skip qttools        # if qmake/moc etc. are not needed, keep this; remove if needed
+            -skip qttools
         shell: cmd
 
       - name: Build and install Qt
-        working-directory: qt-src
+        working-directory: ${{ env.QT_SOURCE_DIR }}
         run: |
           jom -j %NUMBER_OF_PROCESSORS%
           jom install
@@ -106,4 +126,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: qt-5.12.12-static-msvc2019-x64
-          path: qt-src/qt-install
+          path: ${{ env.QT_SOURCE_DIR }}\qt-install
