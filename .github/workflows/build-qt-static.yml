@@ -1,0 +1,58 @@
+name: Build Static Qt (Windows)
+
+on:
+  workflow_dispatch: # 允许手动触发
+  push:
+    tags:
+      - 'qt-build-*' # 推送特定标签时触发
+
+jobs:
+  build:
+    runs-on: windows-2019 # 使用 2019 兼容性更好，VS2019
+    strategy:
+      matrix:
+        # 你可以按需添加版本
+        qt-version: [5.15.2, 6.5.3]
+    
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Setup Cache
+        id: cache-qt
+        uses: actions/cache@v3
+        with:
+          path: C:\Qt\Static
+          # 缓存键包含版本号，不同版本不共用缓存
+          key: qt-static-${{ matrix.qt-version }}-${{ hashFiles('scripts/build-qt.ps1') }}
+          restore-keys: |
+            qt-static-${{ matrix.qt-version }}-
+
+      - name: Build Qt Static
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        run: |
+          # 安装 Perl (Qt5 构建需要)
+          choco install perl -y
+          # 运行构建脚本
+          powershell -ExecutionPolicy Bypass -File scripts/build-qt.ps1 -QtVersion ${{ matrix.qt-version }}
+        shell: cmd
+
+      - name: Verify Build
+        run: |
+          dir C:\Qt\Static\lib
+          # 检查是否有静态库文件 (.lib)
+          if (Test-Path "C:\Qt\Static\lib\Qt5Core.lib") { Write-Host "Qt5 Found" }
+          if (Test-Path "C:\Qt\Static\lib\Qt6Core.lib") { Write-Host "Qt6 Found" }
+        shell: pwsh
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-static-${{ matrix.qt-version }}-windows
+          path: C:\Qt\Static
+          retention-days: 90
