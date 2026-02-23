@@ -85,6 +85,7 @@ jobs:
             -skip qtwebengine ^
             -skip qtwebview ^
             -skip qtx11extras ^
+            -skip qtquicktimeline
         shell: cmd
 
       - name: Build and install Qt
