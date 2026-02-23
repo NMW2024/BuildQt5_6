@@ -62,15 +62,6 @@ jobs:
             -prefix %CD%\qt-install ^
             -no-opengl ^
             -skip qt3d ^
-            -skip qtactiveqt ^
-            -skip qtquicktimeline ^
-            -skip qtandroidextras ^
-            -skip qtcharts ^
-            -skip qtconnectivity ^
-            -skip qtdatavis3d ^
-            -skip qtquick3d ^
-            -skip qtwebengine ^
-            -skip qtdeclarative
         shell: cmd
 
       - name: Build and install Qt
