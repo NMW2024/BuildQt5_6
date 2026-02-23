@@ -1,4 +1,4 @@
-name: Build Qt 5.12 Static Library (MSVC 2019, No QML/Network) on windows-2022
+name: Build Qt 6.5.3 Static Library (MSVC 2022, No QML/Network) on windows-2022
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-qt-static:
-    runs-on: windows-2022   # 使用 windows-2022 镜像
+    runs-on: windows-2022
 
     steps:
       - name: Checkout repository (dummy step)
@@ -21,26 +21,21 @@ jobs:
         run: choco install jom --no-progress
         shell: powershell
 
-      - name: Install Visual Studio 2019 Build Tools
-        run: |
-          choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64" --no-progress
-        shell: powershell
-
-      - name: Setup MSVC 2019 x64 development environment
+      - name: Setup MSVC 2022 x64 development environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-          vsversion: '2019'   # 强制使用 Visual Studio 2019 工具链
+          vsversion: '2022'   # 改为 Visual Studio 2022 工具链
 
-      - name: Download Qt 5.12.12 source code
+      - name: Download Qt 6.5.3 source code
         run: |
-          curl -L -o qt-everywhere-src-5.12.12.zip ^
-            https://download.qt.io/archive/qt/5.12/5.12.12/single/qt-everywhere-src-5.12.12.zip
+          curl -L -o qt-everywhere-src-6.5.3.zip ^
+            https://download.qt.io/archive/qt/6.5/6.5.3/single/qt-everywhere-src-6.5.3.zip    
         shell: cmd
 
       - name: Extract source code
         run: |
-          7z x qt-everywhere-src-5.12.12.zip -oqt-src -y
+          7z x qt-everywhere-src-6.5.3.zip -oqt-src -y
         shell: cmd
 
       - name: Find Qt source directory and set environment variable
@@ -63,26 +58,22 @@ jobs:
             -static ^
             -static-runtime ^
             -release ^
-            -platform win32-msvc2019 ^
+            -platform win32-msvc2022 ^   # 改为 MSVC 2022
             -prefix %CD%\qt-install ^
             -no-opengl ^
             -skip qt3d ^
             -skip qtactiveqt ^
             -skip qtandroidextras ^
-            -skip qtcanvas3d ^
             -skip qtcharts ^
             -skip qtconnectivity ^
             -skip qtdatavis3d ^
-            -skip qtdeclarative ^
+            -skip qtdeclarative ^        # 跳过QML相关（qtdeclarative包含QtQml/QtQuick）
             -skip qtgamepad ^
-            -skip qtgraphicaleffects ^
             -skip qtlocation ^
             -skip qtmacextras ^
             -skip qtmultimedia ^
             -skip qtnetworkauth ^
             -skip qtpurchasing ^
-            -skip qtquickcontrols ^
-            -skip qtquickcontrols2 ^
             -skip qtremoteobjects ^
             -skip qtsensors ^
             -skip qtserialbus ^
@@ -106,5 +97,5 @@ jobs:
       - name: Upload artifacts (headers, libs, tools)
         uses: actions/upload-artifact@v4
         with:
-          name: qt-5.12.12-static-msvc2019-x64
+          name: qt-6.5.3-static-msvc2022-x64   # 更新artifact名称
           path: ${{ env.QT_SOURCE_DIR }}\qt-install
