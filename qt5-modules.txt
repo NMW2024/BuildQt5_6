@@ -1,0 +1,6 @@
+qtbase
+qtsvg
+qtimageformats
+qttools
+qttranslations
+qtwinextras
