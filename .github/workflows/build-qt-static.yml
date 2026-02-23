@@ -35,7 +35,7 @@ jobs:
       - name: Download Qt 5.12.12 source code
         run: |
           curl -L -o qt-everywhere-src-5.12.12.zip ^
-            https://download.qt.io/official_releases/qt/5.12/5.12.12/single/qt-everywhere-src-5.12.12.zip
+            https://download.qt.io/archive/qt/5.12/5.12.12/single/qt-everywhere-src-5.12.12.zip
         shell: cmd
 
       - name: Extract source code
