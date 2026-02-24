@@ -70,7 +70,7 @@ jobs:
         working-directory: ${{ env.QT_SOURCE_DIR }}
         run: |
           # 1. 构建
-          cmake --build . --config Release -j$(nproc)
+          cmake --build . --config Release
           
           # 2. 安装 (使用绝对路径，避免相对路径 ../ 带来的不确定性)
           # ${{ github.workspace }} 是工作区根目录，确保路径清晰
