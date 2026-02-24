@@ -65,16 +65,26 @@ jobs:
         shell: cmd
 
       - name: Build and install Qt
+        # 确保显式指定 shell 为 pwsh，避免不同 Runner 默认 shell 不一致
+        shell: pwsh 
         working-directory: ${{ env.QT_SOURCE_DIR }}
         run: |
+          # 1. 构建
           cmake --build . --config Release -j$(nproc)
-          cmake --install . --config Release --prefix "%CD%\..\qt-install"
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
-          }
+          
+          # 2. 安装 (使用绝对路径，避免相对路径 ../ 带来的不确定性)
+          # ${{ github.workspace }} 是工作区根目录，确保路径清晰
+          cmake --install . --config Release --prefix "${{ github.workspace }}/qt-install"
+          
+          # 注意：GitHub Actions 默认会在命令失败时自动停止，无需手动检查 $LASTEXITCODE
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
+        # 只有上一步成功才执行这一步 (虽然默认行为就是失败即停止，但显式声明更清晰)
+        if: success()
         with:
           name: qt-6.5.3-static-msvc2022-x64
-          path: ${{ github.workspace }}\qt-install
+          # 3. 统一使用正斜杠 /，Windows Runner 也能正确识别
+          path: ${{ github.workspace }}/qt-install
+          # 4. 建议设置保留天数，避免仓库存储溢出
+          retention-days: 5
