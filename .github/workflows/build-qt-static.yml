@@ -69,9 +69,9 @@ jobs:
         run: |
           cmake --build . --config Release -j$(nproc)
           cmake --install . --config Release --prefix "%CD%\..\qt-install"
-          if %ERRORLEVEL% neq 0 (
-            exit /b %ERRORLEVEL%
-          )
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
