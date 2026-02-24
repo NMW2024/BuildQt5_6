@@ -56,12 +56,13 @@ jobs:
         run: |
           mkdir build
           cd build
-          call ../configure.bat ^
-            -static ^
-            -static-runtime ^
-            -release ^
-            -platform win32-msvc ^
-            -prefix %CD%\qt-install ^
+          cmake -G Ninja ^
+              -DCMAKE_BUILD_TYPE=Release ^
+              -DCMAKE_INSTALL_PREFIX=C:/Qt/Qt6.5.0 ^
+              -DBUILD_SHARED_LIBS=OFF ^
+              -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
+              -DQT_FEATURE_static=ON ^
+              ..
         shell: cmd
 
       - name: Build and install Qt
@@ -74,7 +75,7 @@ jobs:
           
           # 2. 安装 (使用绝对路径，避免相对路径 ../ 带来的不确定性)
           # ${{ github.workspace }} 是工作区根目录，确保路径清晰
-          cmake --install . --config Release --prefix "${{ github.workspace }}/qt-install"
+          cmake --install . --config Release --prefix "C:/Qt/Qt6.5.0"
           
           # 注意：GitHub Actions 默认会在命令失败时自动停止，无需手动检查 $LASTEXITCODE
 
@@ -85,6 +86,6 @@ jobs:
         with:
           name: qt-6.5.3-static-msvc2022-x64
           # 3. 统一使用正斜杠 /，Windows Runner 也能正确识别
-          path: ${{ github.workspace }}/qt-install
+          path: C:/Qt/Qt6.5.0
           # 4. 建议设置保留天数，避免仓库存储溢出
           retention-days: 5
