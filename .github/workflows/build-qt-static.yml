@@ -68,7 +68,7 @@ jobs:
       - name: Build and install Qt
         # 确保显式指定 shell 为 pwsh，避免不同 Runner 默认 shell 不一致
         shell: pwsh 
-        working-directory: ${{ env.QT_SOURCE_DIR }}
+        working-directory: ${{ env.QT_SOURCE_DIR }}/build
         run: |
           # 1. 构建
           cmake --build . --config Release
