@@ -86,7 +86,8 @@ jobs:
           -skip qtactiveqt ^
           -skip qtlottie ^
           -skip qtremoteobjects ^
-          -skip qtnetworkauth
+          -skip qtnetworkauth ^
+          -skip qtspeech
 
     - name: Build Qt
       shell: cmd
