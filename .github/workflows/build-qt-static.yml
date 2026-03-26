@@ -1,8 +1,8 @@
 # .github/workflows/build-qt-static.yml
-name: Build Qt 5.15.0 Static (MSVC 2019)
+name: Build Qt 5.15.0 Static (MSVC 2019/2022)
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
   push:
     branches: [ main ]
     paths:
@@ -12,66 +12,53 @@ env:
   QT_VERSION: "5.15.0"
   QT_SRC_URL: "https://download.qt.io/archive/qt/5.15/5.15.0/single/qt-everywhere-src-5.15.0.zip"
   QT_INSTALL_PREFIX: "C:/Qt/5.15.2_static/msvc2019_64"
-  BUILD_DIR: "C:/qt-build"
   SRC_DIR: "C:/qt-src"
 
 jobs:
   build-qt-static:
     name: Build Qt Static
-    runs-on: windows-2019 
-    timeout-minutes: 720 
+    runs-on: windows-2022
+    timeout-minutes: 720
     
     steps:
-    - name: Checkout repository
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup MSVC Environment
+    - name: Setup MSVC 2019 Toolset (on VS2022 image)
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: x64
-        toolset: 14.2  # VS2019
+        toolset: 14.2
 
     - name: Install prerequisites
       shell: cmd
       run: |
-        :: 安装 Python (GitHub Runner 已预装)
-        python --version
-        :: 安装 Perl (使用 Strawberry Perl)
         choco install strawberryperl -y --no-progress
-        :: 安装 7-Zip
         choco install 7zip -y --no-progress
-        :: 刷新环境变量
         refreshenv
 
     - name: Create directories
       shell: cmd
       run: |
         mkdir "%SRC_DIR%"
-        mkdir "%BUILD_DIR%"
         mkdir "%QT_INSTALL_PREFIX%"
 
     - name: Download Qt Source
       shell: pwsh
       run: |
-        $url = $env:QT_SRC_URL
-        $output = "$env:SRC_DIR\qt-everywhere-src-$env:QT_VERSION.zip"
-        Write-Host "Downloading: $url"
-        Invoke-WebRequest -Uri $url -OutFile $output -UseBasicParsing
-        Write-Host "Download complete: $output"
+        Invoke-WebRequest -Uri $env:QT_SRC_URL -OutFile "$env:SRC_DIR\qt-src.zip" -UseBasicParsing
 
     - name: Extract Qt Source
       shell: cmd
       run: |
         cd /d "%SRC_DIR%"
-        "C:\Program Files\7-Zip\7z.exe" x qt-everywhere-src-%QT_VERSION%.zip -o"%SRC_DIR%" -y
+        "C:\Program Files\7-Zip\7z.exe" x qt-src.zip -o"%SRC_DIR%" -y
 
     - name: Configure Qt (Static Build)
       shell: cmd
       working-directory: "%SRC_DIR%/qt-everywhere-src-%QT_VERSION%"
       run: |
-        echo "=== Starting Qt Configure ==="
-        echo "Install Prefix: %QT_INSTALL_PREFIX%"
-        
+        echo "=== Qt Configure ==="
         configure.bat ^
           -prefix "%QT_INSTALL_PREFIX%" ^
           -platform win32-msvc2019 ^
@@ -100,77 +87,36 @@ jobs:
           -skip qtlottie ^
           -skip qtremoteobjects ^
           -skip qtnetworkauth
-          
-        if %errorlevel% neq 0 exit /b %errorlevel%
-        echo "=== Configure Complete ==="
 
-    - name: Build Qt (This takes hours!)
+    - name: Build Qt
       shell: cmd
       working-directory: "%SRC_DIR%/qt-everywhere-src-%QT_VERSION%"
       run: |
-        echo "=== Starting nmake (may take 3-6 hours) ==="
-        nmake -j%NUMBER_OF_PROCESSORS%
+        echo "=== Starting nmake (3-6 hours) ==="
+        nmake
         if %errorlevel% neq 0 exit /b %errorlevel%
-        echo "=== Build Complete ==="
 
     - name: Install Qt
       shell: cmd
       working-directory: "%SRC_DIR%/qt-everywhere-src-%QT_VERSION%"
       run: |
-        echo "=== Installing Qt ==="
         nmake install
-        if %errorlevel% neq 0 exit /b %errorlevel%
-        echo "=== Install Complete ==="
 
     - name: Verify Installation
       shell: cmd
       run: |
-        echo "=== Verifying Qt Installation ==="
-        dir "%QT_INSTALL_PREFIX%\bin\qmake.exe"
-        "%QT_INSTALL_PREFIX%\bin\qmake.exe" -v
-        dir "%QT_INSTALL_PREFIX%\lib\Qt5Core.lib"
+        "%QT_INSTALL_PREFIX%/bin/qmake.exe" -v
+        dir "%QT_INSTALL_PREFIX%/lib/Qt5Core.lib"
 
-    - name: Package Qt Static Build
+    - name: Package Build
       shell: pwsh
       run: |
-        $archiveName = "qt-$env:QT_VERSION-static-msvc2019_64.zip"
-        $archivePath = "$env:GITHUB_WORKSPACE\$archiveName"
-        
-        Write-Host "Creating archive: $archiveName"
-        & "C:\Program Files\7-Zip\7z.exe" a -tzip -mx=9 $archivePath "$env:QT_INSTALL_PREFIX\*"
-        
-        Write-Host "Archive size: $((Get-Item $archivePath).Length / 1MB) MB"
+        $zip = "qt-$env:QT_VERSION-static-msvc2019_64.zip"
+        & "C:\Program Files\7-Zip\7z.exe" a -tzip -mx=9 $zip "$env:QT_INSTALL_PREFIX/*"
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: qt-static-msvc2019_64
-        path: qt-5.15.0-static-msvc2019_64.zip
+        name: qt-static-build
+        path: qt-*.zip
         retention-days: 7
-        compression-level: 0  # 已压缩，无需再次压缩
-
-    - name: Create Release (Optional)
-      if: github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
-      with:
-        files: qt-5.15.0-static-msvc2019_64.zip
-        tag_name: qt-static-v${{ env.QT_VERSION }}-${{ github.run_number }}
-        name: "Qt ${{ env.QT_VERSION }} Static Build #${{ github.run_number }}"
-        body: |
-          Static Qt ${{ env.QT_VERSION }} build for MSVC 2019 (64-bit)
-          
-          **Build Configuration:**
-          - Platform: win32-msvc2019
-          - Static linking: Yes
-          - Runtime: Static
-          - OpenSSL: Disabled
-          - Modules skipped: qtwebengine, qt3d, qtsensors, etc.
-          
-          **Usage:**
-          ```
-          1. Extract to C:\Qt\
-          2. Add to PATH: C:\Qt\5.15.2_static\msvc2019_64\bin
-          3. In Qt Creator: Tools → Options → Kits → Add Qt Version
-          ```
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
