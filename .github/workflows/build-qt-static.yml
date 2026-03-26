@@ -67,7 +67,7 @@ jobs:
 
     - name: Configure Qt (Static Build)
       shell: cmd
-      working-directory: "%SRC_DIR%\qt-everywhere-src-%QT_VERSION%"
+      working-directory: "%SRC_DIR%/qt-everywhere-src-%QT_VERSION%"
       run: |
         echo "=== Starting Qt Configure ==="
         echo "Install Prefix: %QT_INSTALL_PREFIX%"
@@ -106,7 +106,7 @@ jobs:
 
     - name: Build Qt (This takes hours!)
       shell: cmd
-      working-directory: "%SRC_DIR%\qt-everywhere-src-%QT_VERSION%"
+      working-directory: "%SRC_DIR%/qt-everywhere-src-%QT_VERSION%"
       run: |
         echo "=== Starting nmake (may take 3-6 hours) ==="
         nmake -j%NUMBER_OF_PROCESSORS%
@@ -115,7 +115,7 @@ jobs:
 
     - name: Install Qt
       shell: cmd
-      working-directory: "%SRC_DIR%\qt-everywhere-src-%QT_VERSION%"
+      working-directory: "%SRC_DIR%/qt-everywhere-src-%QT_VERSION%"
       run: |
         echo "=== Installing Qt ==="
         nmake install
