@@ -1,5 +1,5 @@
 # .github/workflows/build-qt-static.yml
-name: Build Qt 5.15.0 Static (MSVC 2019/2022)
+name: Build Qt 5.15.0 Static (MSVC 2019)
 
 on:
   workflow_dispatch:
@@ -9,9 +9,9 @@ on:
       - '.github/workflows/build-qt-static.yml'
 
 env:
-  QT_VERSION: "5.15.0"
-  QT_SRC_URL: "https://download.qt.io/archive/qt/5.15/5.15.0/single/qt-everywhere-src-5.15.0.zip"
-  QT_INSTALL_PREFIX: "C:/Qt/5.15.2_static/msvc2019_64"
+  QT_VERSION: "5.12.0"
+  QT_SRC_URL: "https://download.qt.io/archive/qt/5.12/5.12.0/single/qt-everywhere-src-5.12.0.zip"
+  QT_INSTALL_PREFIX: "C:/Qt/5.12.0_static/msvc2019_64"
   SRC_DIR: "C:/qt-src"
 
 jobs:
