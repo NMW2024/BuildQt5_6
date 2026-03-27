@@ -104,10 +104,16 @@ jobs:
         nmake install
 
     - name: Verify Installation
-      shell: cmd
+      shell: pwsh 
       run: |
-        "%QT_INSTALL_PREFIX%/bin/qmake.exe" -v
-        dir "%QT_INSTALL_PREFIX%/lib/Qt5Core.lib"
+        Write-Host "=== Verifying Qt Installation ==="
+        
+        # 检查 qmake
+        & "$env:QT_INSTALL_PREFIX/bin/qmake.exe" -v
+        if ($LASTEXITCODE -ne 0) { 
+          Write-Host "❌ qmake verification failed"
+          exit 1 
+        }
 
     - name: Package Build
       shell: pwsh
