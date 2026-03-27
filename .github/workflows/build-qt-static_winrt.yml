@@ -28,7 +28,7 @@ jobs:
     - name: Setup MSVC 2015 Toolset
       uses: ilammy/msvc-dev-cmd@v1
       with:
-        arch: x64
+        arch: x86
         toolset: 14.0
 
     - name: Install prerequisites
@@ -62,7 +62,7 @@ jobs:
         echo "=== Qt Configure for WinRT ==="
         configure.bat ^
           -prefix "%QT_INSTALL_PREFIX%" ^
-          -platform winrt-x64-msvc2015 ^
+          -platform win32-msvc2015 -xplatform winrt-x64-msvc2015 ^
           -static ^
           -static-runtime ^
           -release ^
@@ -71,6 +71,7 @@ jobs:
           -nomake examples ^
           -nomake tests ^
           -mp ^
+          -no-pch ^
           -no-openssl ^
           -no-angle ^
           -sql-sqlite ^
