@@ -10,7 +10,7 @@ on:
 
 env:
   QT_VERSION: "5.15.18"
-  QT_SRC_URL: "https://download.qt.io/archive/qt/5.15/5.15.18/single/qt-everywhere-src-5.15.18.zip"
+  QT_SRC_URL: "https://download.qt.io/archive/qt/5.15/5.15.18/single/qt-everywhere-opensource-src-5.15.18.zip"
   QT_INSTALL_PREFIX: "C:/Qt/5.15.18_static/msvc2019_64"
   SRC_DIR: "C:/qt-src"
 
