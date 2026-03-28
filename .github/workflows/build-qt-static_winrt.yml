@@ -87,7 +87,6 @@ jobs:
           -skip qtwayland ^
           -skip qtwebglplugin ^
           -skip qtactiveqt ^
-          -skip qtlottie ^
           -skip qtremoteobjects ^
           -skip qtnetworkauth ^
           -skip qtspeech ^
