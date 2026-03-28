@@ -97,19 +97,22 @@ jobs:
           -skip qtvirtualkeyboard ^
           -skip qtscxml
 
-    - name: Build Qt
+    - name: Build Qt with JOM
       shell: cmd
       working-directory: ${{ env.SRC_DIR }}/qt-everywhere-src-${{ env.QT_VERSION }}
       run: |
-        echo "=== Starting nmake (3-6 hours) ==="
-        nmake
+        echo "=== Installing JOM for parallel build ==="
+        choco install jom -y --no-progress
+        refreshenv
+        echo "=== Starting jom (parallel build) ==="
+        jom -j2
         if %errorlevel% neq 0 exit /b %errorlevel%
 
     - name: Install Qt
       shell: cmd
       working-directory: ${{ env.SRC_DIR }}/qt-everywhere-src-${{ env.QT_VERSION }}
       run: |
-        nmake install
+        jom install
 
     - name: Verify Installation
       shell: pwsh 
