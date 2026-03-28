@@ -1,12 +1,12 @@
 # .github/workflows/build-qt-static.yml
-name: Build Qt 5 Static with WinRT (MSVC 2015)
+name: Build Qt 5 with WinRT (MSVC 2015)
 
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
     paths:
-      - '.github/workflows/build-qt-static_winrt.yml'
+      - '.github/workflows/build-qt-winrt.yml'
 
 env:
   QT_VERSION: "5.12.12"
@@ -63,8 +63,6 @@ jobs:
         configure.bat ^
           -prefix "%QT_INSTALL_PREFIX%" ^
           -platform win32-msvc2015 -xplatform winrt-x64-msvc2015 ^
-          -static ^
-          -static-runtime ^
           -release ^
           -opensource ^
           -confirm-license ^
