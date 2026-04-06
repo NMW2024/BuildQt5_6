@@ -1,0 +1,371 @@
+# .github/workflows/build-qt-all-static.yml
+# Build multiple Qt versions with different compilers (Static builds)
+# Matrix build for all requested configurations
+
+name: Build Qt All Static Versions
+
+on:
+  workflow_dispatch:
+    inputs:
+      qt_version:
+        description: 'Qt version to build (leave empty to build all)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - '5.6.3'
+          - '5.12.12'
+          - '5.15.18'
+          - '6.5.3'
+      compiler:
+        description: 'Compiler (leave empty to build all for selected version)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - 'mingw49_32'
+          - 'msvc2015'
+          - 'msvc2017'
+          - 'msvc2019'
+          - 'msvc2022'
+          - 'mingw73'
+          - 'mingw81'
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/build-qt-all-static.yml'
+
+env:
+  QT_MODULES_FILE: "qt5-modules.txt"
+
+jobs:
+  # Job matrix for all Qt version + compiler combinations
+  build-matrix:
+    name: ${{ matrix.qt-version }}-${{ matrix.compiler-name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 1440  # 24 hours max for each build
+    continue-on-error: true
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Qt 5.6 LTS + MinGW 4.9 32-bit (Windows XP compatible)
+          - qt-version: "5.6.3"
+            compiler-name: "mingw49_32"
+            runner: windows-2019
+            compiler-setup: "none"
+            install-prefix: "D:/Qt/5.6.3_static/mingw49_32"
+            src-url: "https://download.qt.io/archive/qt/5.6/5.6.3/single/qt-everywhere-opensource-src-5.6.3.zip"
+            make-tool: "mingw32-make"
+            platform: "win32-g++"
+            extra-configure: "-no-opengl -no-angle"
+            
+          # Qt 5.12 LTS + MSVC 2015
+          - qt-version: "5.12.12"
+            compiler-name: "msvc2015"
+            runner: windows-2019
+            compiler-setup: "ilammy/msvc-dev-cmd@v1"
+            toolset: "14.0"
+            arch: "x86"
+            install-prefix: "D:/Qt/5.12.12_static/msvc2015"
+            src-url: "https://download.qt.io/archive/qt/5.12/5.12.12/single/qt-everywhere-src-5.12.12.zip"
+            make-tool: "nmake"
+            platform: "win32-msvc2015"
+            extra-configure: ""
+            
+          # Qt 5.12 LTS + MSVC 2017
+          - qt-version: "5.12.12"
+            compiler-name: "msvc2017"
+            runner: windows-2019
+            compiler-setup: "ilammy/msvc-dev-cmd@v1"
+            toolset: "14.1"
+            arch: "x86"
+            install-prefix: "D:/Qt/5.12.12_static/msvc2017"
+            src-url: "https://download.qt.io/archive/qt/5.12/5.12.12/single/qt-everywhere-src-5.12.12.zip"
+            make-tool: "nmake"
+            platform: "win32-msvc2017"
+            extra-configure: ""
+            
+          # Qt 5.12 LTS + MinGW 7.3
+          - qt-version: "5.12.12"
+            compiler-name: "mingw73"
+            runner: windows-2019
+            compiler-setup: "none"
+            install-prefix: "D:/Qt/5.12.12_static/mingw73"
+            src-url: "https://download.qt.io/archive/qt/5.12/5.12.12/single/qt-everywhere-src-5.12.12.zip"
+            make-tool: "mingw32-make"
+            platform: "win32-g++"
+            extra-configure: ""
+            
+          # Qt 5.15 LTS + MSVC 2019
+          - qt-version: "5.15.18"
+            compiler-name: "msvc2019"
+            runner: windows-2019
+            compiler-setup: "ilammy/msvc-dev-cmd@v1"
+            toolset: "14.2"
+            arch: "x86"
+            install-prefix: "D:/Qt/5.15.18_static/msvc2019"
+            src-url: "https://download.qt.io/archive/qt/5.15/5.15.18/single/qt-everywhere-opensource-src-5.15.18.zip"
+            make-tool: "nmake"
+            platform: "win32-msvc2019"
+            extra-configure: ""
+            
+          # Qt 5.15 LTS + MinGW 8.1
+          - qt-version: "5.15.18"
+            compiler-name: "mingw81"
+            runner: windows-2019
+            compiler-setup: "none"
+            install-prefix: "D:/Qt/5.15.18_static/mingw81"
+            src-url: "https://download.qt.io/archive/qt/5.15/5.15.18/single/qt-everywhere-opensource-src-5.15.18.zip"
+            make-tool: "mingw32-make"
+            platform: "win32-g++"
+            extra-configure: ""
+            
+          # Qt 6.5 LTS + MSVC 2022
+          - qt-version: "6.5.3"
+            compiler-name: "msvc2022"
+            runner: windows-2022
+            compiler-setup: "ilammy/msvc-dev-cmd@v1"
+            toolset: "14.3"
+            arch: "x64"
+            install-prefix: "D:/Qt/6.5.3_static/msvc2022_64"
+            src-url: "https://download.qt.io/archive/qt/6.5/6.5.3/single/qt-everywhere-src-6.5.3.tar.xz"
+            make-tool: "ninja"
+            platform: "win32-msvc2019"
+            extra-configure: ""
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup MSVC Toolset
+      if: matrix.compiler-setup == 'ilammy/msvc-dev-cmd@v1'
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: ${{ matrix.arch || 'x86' }}
+        toolset: ${{ matrix.toolset }}
+
+    - name: Install prerequisites (MSVC builds)
+      if: contains(matrix.compiler-name, 'msvc')
+      shell: cmd
+      run: |
+        choco install strawberryperl -y --no-progress
+        choco install 7zip -y --no-progress
+        refreshenv
+
+    - name: Install prerequisites (MinGW builds)
+      if: contains(matrix.compiler-name, 'mingw')
+      shell: cmd
+      run: |
+        choco install strawberryperl -y --no-progress
+        choco install 7zip -y --no-progress
+        choco install mingw --version=${{ matrix.compiler-name == 'mingw49_32' && '4.9.3' || (matrix.compiler-name == 'mingw73' && '7.3.0' || '8.1.0') }} -y --no-progress 2>nul || echo "Using system MinGW"
+        refreshenv
+
+    - name: Install Ninja (for Qt6)
+      if: startsWith(matrix.qt-version, '6.')
+      shell: cmd
+      run: |
+        choco install ninja -y --no-progress
+        refreshenv
+
+    - name: Create directories
+      shell: cmd
+      run: |
+        mkdir "%SRC_DIR%" 2>nul || cd .
+        mkdir "${{ matrix.install-prefix }}" 2>nul || cd .
+      env:
+        SRC_DIR: "D:/qt-src"
+
+    - name: Download Qt Source
+      shell: pwsh
+      run: |
+        $srcUrl = "${{ matrix.src-url }}"
+        $srcDir = "D:/qt-src"
+        $fileName = Split-Path $srcUrl -Leaf
+        Write-Host "Downloading: $srcUrl"
+        Invoke-WebRequest -Uri $srcUrl -OutFile "$srcDir\$fileName" -UseBasicParsing
+        Write-Host "Download completed: $fileName"
+
+    - name: Extract Qt Source (ZIP)
+      if: endsWith(matrix.src-url, '.zip')
+      shell: cmd
+      run: |
+        cd /d "D:\qt-src"
+        "C:\Program Files\7-Zip\7z.exe" x qt-src.zip -o"D:\qt-src" -y
+        dir
+
+    - name: Extract Qt Source (TAR.XZ for Qt6)
+      if: endsWith(matrix.src-url, '.tar.xz')
+      shell: cmd
+      run: |
+        cd /d "D:\qt-src"
+        "C:\Program Files\7-Zip\7z.exe" x qt-src.tar.xz -so | "C:\Program Files\7-Zip\7z.exe" x -si -ttar -o"D:\qt-src" -y
+        dir
+
+    - name: Find extracted directory
+      id: find-src
+      shell: pwsh
+      run: |
+        $dirs = Get-ChildItem -Path "D:/qt-src" -Directory | Where-Object { $_.Name -like "qt-everywhere*" }
+        if ($dirs.Count -eq 0) {
+          Write-Error "No qt-everywhere directory found"
+          exit 1
+        }
+        $srcDir = $dirs[0].FullName
+        Write-Host "Source directory: $srcDir"
+        echo "src-dir=$srcDir" >> $env:GITHUB_OUTPUT
+
+    - name: Read Qt modules list
+      id: modules
+      shell: pwsh
+      run: |
+        $modules = Get-Content "qt5-modules.txt" | Where-Object { $_ -notmatch '^\s*#' -and $_.Trim() -ne '' }
+        $modulesStr = $modules -join ","
+        echo "modules=$modulesStr" >> $env:GITHUB_OUTPUT
+        Write-Host "Modules to build: $modulesStr"
+
+    - name: Configure Qt (Static Build)
+      shell: cmd
+      working-directory: ${{ steps.find-src.outputs.src-dir }}
+      run: |
+        echo "=== Qt Configure for ${{ matrix.qt-version }}-${{ matrix.compiler-name }} ==="
+        echo "Platform: ${{ matrix.platform }}"
+        echo "Install prefix: ${{ matrix.install-prefix }}"
+        
+        configure.bat ^
+          -prefix "${{ matrix.install-prefix }}" ^
+          -platform ${{ matrix.platform }} ^\
+          -static ^\
+          -release ^\
+          -opensource ^\
+          -confirm-license ^\
+          -make examples ^\
+          -make tools ^\
+          -nomake tests ^\
+          -mp ^\
+          -no-openssl ^\
+          -sql-sqlite ^\
+          -qt-sqlite ^\
+          -qt-zlib ^\
+          -qt-libpng ^\
+          -qt-libjpeg ^\
+          -skip qtwebengine ^\
+          -skip qt3d ^\
+          -skip qtdoc ^\
+          -skip qtwayland ${{ matrix.extra-configure }}
+        
+        if %errorlevel% neq 0 exit /b %errorlevel%
+
+    - name: Build Qt Core (qtbase)
+      shell: cmd
+      working-directory: ${{ steps.find-src.outputs.src-dir }}
+      run: |
+        echo "=== Building Qt Base (3-6 hours) ==="
+        ${{ matrix.make-tool }}
+        if %errorlevel% neq 0 exit /b %errorlevel%
+
+    - name: Install Qt Base
+      shell: cmd
+      working-directory: ${{ steps.find-src.outputs.src-dir }}
+      run: |
+        echo "=== Installing Qt Base ==="
+        ${{ matrix.make-tool }} install
+        if %errorlevel% neq 0 exit /b %errorlevel%
+
+    - name: Build and Install Additional Modules
+      if: steps.modules.outputs.modules != ''
+      shell: pwsh
+      run: |
+        $modules = "${{ steps.modules.outputs.modules }}".Split(',') | Where-Object { $_.Trim() -ne '' -and $_ -ne 'qtbase' }
+        $srcBase = "${{ steps.find-src.outputs.src-dir }}"
+        $installPrefix = "${{ matrix.install-prefix }}"
+        $makeTool = "${{ matrix.make-tool }}"
+        $platform = "${{ matrix.platform }}"
+        
+        foreach ($module in $modules) {
+          Write-Host "=== Processing module: $module ==="
+          
+          # Check if module source exists
+          $moduleDir = Join-Path $srcBase $module
+          if (-not (Test-Path $moduleDir)) {
+            Write-Host "Module $module not found in source tree, skipping..."
+            continue
+          }
+          
+          Set-Location $moduleDir
+          
+          # Configure module
+          Write-Host "Configuring $module..."
+          & ".\configure.bat" `
+            -prefix $installPrefix `
+            -platform $platform `
+            -static `
+            -release `
+            -opensource `
+            -confirm-license `
+            -nomake tests `
+            -mp
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Configure failed for $module, continuing..."
+            continue
+          }
+          
+          # Build module
+          Write-Host "Building $module..."
+          & $makeTool
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Build failed for $module, continuing..."
+            continue
+          }
+          
+          # Install module
+          Write-Host "Installing $module..."
+          & $makeTool install
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Install failed for $module, continuing..."
+          }
+        }
+
+    - name: Verify Installation
+      shell: pwsh
+      run: |
+        Write-Host "=== Verifying Qt Installation ==="
+        $installPrefix = "${{ matrix.install-prefix }}"
+        
+        # Check qmake or qmake6
+        if (Test-Path "$installPrefix/bin/qmake.exe") {
+          & "$installPrefix/bin/qmake.exe" -v
+        } elseif (Test-Path "$installPrefix/bin/qmake6.exe") {
+          & "$installPrefix/bin/qmake6.exe" -v
+        } else {
+          Write-Warning "qmake not found, checking bin directory..."
+          Get-ChildItem "$installPrefix/bin" -Filter "qmake*.exe"
+        }
+        
+        # List installed libraries
+        Write-Host "`n=== Installed Libraries ==="
+        if (Test-Path "$installPrefix/lib") {
+          Get-ChildItem "$installPrefix/lib" -Filter "*.lib" -o *.a | Select-Object -First 20 Name
+        }
+
+    - name: Package Build
+      shell: pwsh
+      run: |
+        $zipName = "qt-${{ matrix.qt-version }}-static-${{ matrix.compiler-name }}.zip"
+        Write-Host "Creating package: $zipName"
+        & "C:\Program Files\7-Zip\7z.exe" a -tzip -mx=5 -mmt=on "$zipName" "${{ matrix.install-prefix }}/*"
+        Write-Host "Package size:"
+        Get-Item "$zipName" | Select-Object Name, Length
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: qt-${{ matrix.qt-version }}-${{ matrix.compiler-name }}
+        path: qt-*.zip
+        retention-days: 14
+        if-no-files-found: warn

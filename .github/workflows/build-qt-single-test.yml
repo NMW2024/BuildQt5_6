@@ -1,0 +1,244 @@
+# .github/workflows/build-qt-single-test.yml
+# Single Qt version test build - Start with Qt 5.15 + MSVC 2019
+# Use this to test the build process before running the full matrix
+
+name: Build Qt Single Test (5.15 MSVC 2019)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/build-qt-single-test.yml'
+
+env:
+  QT_VERSION: "5.15.18"
+  QT_SRC_URL: "https://download.qt.io/archive/qt/5.15/5.15.18/single/qt-everywhere-opensource-src-5.15.18.zip"
+  QT_INSTALL_PREFIX: "D:/Qt/5.15.18_static/msvc2019"
+  SRC_DIR: "D:/qt-src"
+
+jobs:
+  build-qt-test:
+    name: Build Qt 5.15 Static (MSVC 2019)
+    runs-on: windows-2019
+    timeout-minutes: 720  # 12 hours
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup MSVC 2019 Toolset
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x86
+        toolset: 14.2
+
+    - name: Install prerequisites
+      shell: cmd
+      run: |
+        choco install strawberryperl -y --no-progress
+        choco install 7zip -y --no-progress
+        refreshenv
+
+    - name: Create directories
+      shell: cmd
+      run: |
+        mkdir "%SRC_DIR%"
+        mkdir "%QT_INSTALL_PREFIX%"
+
+    - name: Download Qt Source
+      shell: pwsh
+      run: |
+        Write-Host "Downloading Qt $env:QT_VERSION from $env:QT_SRC_URL"
+        Invoke-WebRequest -Uri $env:QT_SRC_URL -OutFile "$env:SRC_DIR\qt-src.zip" -UseBasicParsing
+        Write-Host "Download completed"
+
+    - name: Extract Qt Source
+      shell: cmd
+      run: |
+        cd /d "%SRC_DIR%"
+        "C:\Program Files\7-Zip\7z.exe" x qt-src.zip -o"%SRC_DIR%" -y
+        dir
+
+    - name: Find extracted directory
+      id: find-src
+      shell: pwsh
+      run: |
+        $dirs = Get-ChildItem -Path "D:/qt-src" -Directory | Where-Object { $_.Name -like "qt-everywhere*" }
+        if ($dirs.Count -eq 0) {
+          Write-Error "No qt-everywhere directory found"
+          exit 1
+        }
+        $srcDir = $dirs[0].FullName
+        Write-Host "Source directory: $srcDir"
+        echo "src-dir=$srcDir" >> $env:GITHUB_OUTPUT
+
+    - name: Read Qt modules list
+      id: modules
+      shell: pwsh
+      run: |
+        $modules = Get-Content "qt5-modules.txt" | Where-Object { $_ -notmatch '^\s*#' -and $_.Trim() -ne '' }
+        $modulesStr = $modules -join ","
+        echo "modules=$modulesStr" >> $env:GITHUB_OUTPUT
+        Write-Host "Modules to build: $modulesStr"
+
+    - name: Configure Qt (Static Build)
+      shell: cmd
+      working-directory: ${{ steps.find-src.outputs.src-dir }}
+      run: |
+        echo "=== Qt Configure for ${{ env.QT_VERSION }} ==="
+        echo "Platform: win32-msvc2019"
+        echo "Install prefix: ${{ env.QT_INSTALL_PREFIX }}"
+        
+        configure.bat ^
+          -prefix "${{ env.QT_INSTALL_PREFIX }}" ^
+          -platform win32-msvc2019 ^
+          -static ^
+          -release ^
+          -opensource ^
+          -confirm-license ^
+          -make examples ^
+          -make tools ^
+          -nomake tests ^
+          -mp ^
+          -no-openssl ^
+          -sql-sqlite ^
+          -qt-sqlite ^
+          -qt-zlib ^
+          -qt-libpng ^
+          -qt-libjpeg ^
+          -skip qtwebengine ^
+          -skip qt3d ^
+          -skip qtdoc ^
+          -skip qtwayland
+        
+        if %errorlevel% neq 0 exit /b %errorlevel%
+
+    - name: Build Qt Base
+      shell: cmd
+      working-directory: ${{ steps.find-src.outputs.src-dir }}
+      run: |
+        echo "=== Building Qt Base (estimated 3-6 hours) ==="
+        nmake
+        if %errorlevel% neq 0 exit /b %errorlevel%
+
+    - name: Install Qt Base
+      shell: cmd
+      working-directory: ${{ steps.find-src.outputs.src-dir }}
+      run: |
+        echo "=== Installing Qt Base ==="
+        nmake install
+        if %errorlevel% neq 0 exit /b %errorlevel%
+
+    - name: Build Additional Modules
+      shell: pwsh
+      run: |
+        $modules = "${{ steps.modules.outputs.modules }}".Split(',') | Where-Object { $_.Trim() -ne '' -and $_ -ne 'qtbase' }
+        $srcBase = "${{ steps.find-src.outputs.src-dir }}"
+        $installPrefix = "${{ env.QT_INSTALL_PREFIX }}"
+        
+        foreach ($module in $modules) {
+          Write-Host "`n=== Processing module: $module ==="
+          
+          $moduleDir = Join-Path $srcBase $module
+          if (-not (Test-Path $moduleDir)) {
+            Write-Host "Module $module not found in source tree, skipping..."
+            continue
+          }
+          
+          Set-Location $moduleDir
+          
+          Write-Host "Configuring $module..."
+          & ".\configure.bat" `
+            -prefix $installPrefix `
+            -platform win32-msvc2019 `
+            -static `
+            -release `
+            -opensource `
+            -confirm-license `
+            -nomake tests `
+            -mp
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Configure failed for $module, continuing..."
+            continue
+          }
+          
+          Write-Host "Building $module..."
+          nmake
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Build failed for $module, continuing..."
+            continue
+          }
+          
+          Write-Host "Installing $module..."
+          nmake install
+          if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Install failed for $module, continuing..."
+          }
+        }
+
+    - name: Verify Installation
+      shell: pwsh
+      run: |
+        Write-Host "`n=== Verifying Qt Installation ==="
+        
+        # Check qmake
+        if (Test-Path "${{ env.QT_INSTALL_PREFIX }}/bin/qmake.exe") {
+          Write-Host "`n=== qmake version ==="
+          & "${{ env.QT_INSTALL_PREFIX }}/bin/qmake.exe" -v
+        } else {
+          Write-Warning "qmake.exe not found!"
+          Get-ChildItem "${{ env.QT_INSTALL_PREFIX }}/bin" -Filter "*.exe"
+        }
+        
+        # List installed libraries
+        Write-Host "`n=== Installed Libraries (first 30) ==="
+        if (Test-Path "${{ env.QT_INSTALL_PREFIX }}/lib") {
+          Get-ChildItem "${{ env.QT_INSTALL_PREFIX }}/lib" -Filter "*.lib" | Select-Object -First 30 Name
+        }
+        
+        # Count total libs
+        $libCount = (Get-ChildItem "${{ env.QT_INSTALL_PREFIX }}/lib" -Filter "*.lib").Count
+        Write-Host "`nTotal .lib files: $libCount"
+
+    - name: Package Build
+      shell: pwsh
+      run: |
+        $zipName = "qt-${{ env.QT_VERSION }}-static-msvc2019.zip"
+        Write-Host "`nCreating package: $zipName"
+        & "C:\Program Files\7-Zip\7z.exe" a -tzip -mx=5 -mmt=on "$zipName" "${{ env.QT_INSTALL_PREFIX }}/*"
+        
+        Write-Host "`nPackage information:"
+        Get-Item "$zipName" | Format-Table Name, Length -AutoSize
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: qt-5.15.18-static-msvc2019
+        path: qt-*.zip
+        retention-days: 14
+        if-no-files-found: warn
+
+    - name: Build Summary
+      if: always()
+      shell: pwsh
+      run: |
+        Write-Host "`n========================================="
+        Write-Host "       BUILD SUMMARY"
+        Write-Host "========================================="
+        Write-Host "Qt Version: ${{ env.QT_VERSION }}"
+        Write-Host "Compiler: MSVC 2019 (x86)"
+        Write-Host "Build Type: Static"
+        Write-Host "Install Prefix: ${{ env.QT_INSTALL_PREFIX }}"
+        Write-Host "========================================="
+        
+        if (Test-Path "qt-*.zip") {
+          Write-Host "✓ Build artifact created successfully"
+          Get-Item "qt-*.zip" | ForEach-Object {
+            Write-Host "  - $($_.Name) ($([math]::Round($_.Length / 1MB, 2)) MB)"
+          }
+        } else {
+          Write-Host "✗ Build artifact not found"
+        }
+        Write-Host "========================================="
