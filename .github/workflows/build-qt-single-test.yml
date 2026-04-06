@@ -1,0 +1,198 @@
+# .github/workflows/build-qt-single-test.yml
+# 单版本测试工作流 - 先编译一个试试 (约 1.5-3 小时)
+# 基于已验证成功的配置：Qt 5.15.18 + MSVC 2019 x64 on windows-2022
+
+name: Build Qt Static - Single Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/build-qt-single-test.yml'
+
+env:
+  # 测试配置：Qt 5.15.18 + MSVC 2019 x64 (已验证成功，约 1.5 小时)
+  QT_VERSION: "5.15.18"
+  QT_SRC_URL: "https://download.qt.io/archive/qt/5.15/5.15.18/single/qt-everywhere-opensource-src-5.15.18.zip"
+  QT_INSTALL_PREFIX: "C:/Qt/5.15.18_static/msvc2019_64"
+  SRC_DIR: "C:/qt-src"
+
+jobs:
+  build-qt-static-test:
+    name: Qt ${{ env.QT_VERSION }} Static (MSVC 2019 x64)
+    runs-on: windows-2022
+    timeout-minutes: 360  # 6 小时超时
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup MSVC 2019 Toolset (VS 14.2 on windows-2022)
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+        toolset: 14.2
+
+    - name: Install prerequisites
+      shell: cmd
+      run: |
+        choco install strawberryperl -y --no-progress
+        choco install 7zip -y --no-progress
+        refreshenv
+
+    - name: Create directories
+      shell: cmd
+      run: |
+        mkdir "%SRC_DIR%"
+        mkdir "%QT_INSTALL_PREFIX%"
+
+    - name: Download Qt Source
+      shell: pwsh
+      run: |
+        Write-Host "Downloading Qt $env:QT_VERSION..."
+        Invoke-WebRequest -Uri $env:QT_SRC_URL -OutFile "$env:SRC_DIR\qt-src.zip" -UseBasicParsing
+        Write-Host "Download complete"
+
+    - name: Extract Qt Source
+      shell: cmd
+      run: |
+        cd /d "%SRC_DIR%"
+        "C:\Program Files\7-Zip\7z.exe" x qt-src.zip -o"%SRC_DIR%" -y
+        dir /b
+
+    - name: Configure Qt (Static Build with Examples)
+      shell: cmd
+      working-directory: ${{ env.SRC_DIR }}/qt-everywhere-src-${{ env.QT_VERSION }}
+      run: |
+        echo "=== Qt Configure ==="
+        echo "Platform: win32-msvc2019"
+        echo "Prefix: %QT_INSTALL_PREFIX%"
+        echo "Building with examples and tools..."
+        
+        configure.bat ^
+          -prefix "%QT_INSTALL_PREFIX%" ^
+          -platform win32-msvc2019 ^
+          -static ^
+          -static-runtime ^
+          -release ^
+          -opensource ^
+          -confirm-license ^
+          -make examples ^
+          -make tools ^
+          -nomake tests ^
+          -mp ^
+          -no-openssl ^
+          -sql-sqlite ^
+          -qt-sqlite ^
+          -qt-zlib ^
+          -qt-libpng ^
+          -qt-libjpeg ^
+          -skip qtwebengine ^
+          -skip qt3d ^
+          -skip qtsensors ^
+          -skip qtlocation ^
+          -skip qtwayland ^
+          -skip qtwebglplugin ^
+          -skip qtactiveqt ^
+          -skip qtlottie ^
+          -skip qtremoteobjects ^
+          -skip qtnetworkauth ^
+          -skip qtspeech ^
+          -skip qtserialbus
+        
+        if %errorlevel% neq 0 exit /b %errorlevel%
+        echo "Configure completed successfully"
+
+    - name: Build Qt
+      shell: cmd
+      working-directory: ${{ env.SRC_DIR }}/qt-everywhere-src-${{ env.QT_VERSION }}
+      run: |
+        echo "=== Starting nmake (estimated 1.5-3 hours) ==="
+        echo "Start time: %TIME%"
+        nmake
+        if %errorlevel% neq 0 exit /b %errorlevel%
+        echo "Build completed at: %TIME%"
+
+    - name: Install Qt
+      shell: cmd
+      working-directory: ${{ env.SRC_DIR }}/qt-everywhere-src-${{ env.QT_VERSION }}
+      run: |
+        echo "=== Installing Qt ==="
+        nmake install
+        echo "Install completed"
+
+    - name: Verify Installation
+      shell: pwsh 
+      run: |
+        Write-Host "=== Verifying Qt Installation ==="
+        
+        # Check qmake
+        $qmake = "$env:QT_INSTALL_PREFIX/bin/qmake.exe"
+        if (Test-Path $qmake) {
+          & $qmake -v
+          Write-Host "[OK] qmake found and working"
+        } else {
+          Write-Host "[ERROR] qmake not found"
+          exit 1
+        }
+        
+        # Check static libraries
+        $libPath = "$env:QT_INSTALL_PREFIX/lib"
+        if (Test-Path $libPath) {
+          $staticLibs = Get-ChildItem $libPath -Filter "*.lib" | Measure-Object
+          Write-Host "[OK] Found $($staticLibs.Count) static libraries"
+        }
+        
+        # Check examples
+        $examplesPath = "$env:QT_INSTALL_PREFIX/examples"
+        if (Test-Path $examplesPath) {
+          $examples = Get-ChildItem $examplesPath -Recurse -Filter "*.cpp" | Measure-Object
+          Write-Host "[OK] Found $($examples.Count) example source files"
+        }
+        
+        # Check tools
+        $toolsPath = "$env:QT_INSTALL_PREFIX/tools"
+        if (Test-Path $toolsPath) {
+          Write-Host "[OK] Tools directory exists"
+        }
+
+    - name: Package Build
+      shell: pwsh
+      run: |
+        Write-Host "=== Packaging build ==="
+        $zipName = "qt-$env:QT_VERSION-static-msvc2019_64.zip"
+        & "C:\Program Files\7-Zip\7z.exe" a -tzip -mx=5 $zipName "$env:QT_INSTALL_PREFIX/*"
+        $size = (Get-Item $zipName).Length / 1GB
+        Write-Host "Package size: $([math]::Round($size, 2)) GB"
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: qt-${{ env.QT_VERSION }}-static-msvc2019_64
+        path: qt-*.zip
+        retention-days: 14
+        if-no-files-found: error
+
+    - name: Build Summary
+      if: always()
+      shell: pwsh
+      run: |
+        Write-Host "========================================="
+        Write-Host "       BUILD SUMMARY"
+        Write-Host "========================================="
+        Write-Host "Qt Version: ${{ env.QT_VERSION }}"
+        Write-Host "Compiler: MSVC 2019 (x64)"
+        Write-Host "Build Type: Static + Examples + Tools"
+        Write-Host "Install Prefix: ${{ env.QT_INSTALL_PREFIX }}"
+        Write-Host "========================================="
+
+        if (Test-Path "qt-*.zip") {
+          Write-Host "[OK] Build artifact created successfully"
+          Get-Item "qt-*.zip" | ForEach-Object {
+            Write-Host "  - $($_.Name) ($([math]::Round($_.Length / 1MB, 2)) MB)"
+          }
+        } else {
+          Write-Host "[ERROR] Build artifact not found"
+        }
+        Write-Host "========================================="

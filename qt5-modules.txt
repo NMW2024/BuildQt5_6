@@ -4,3 +4,13 @@ qtimageformats
 qttools
 qttranslations
 qtwinextras
+qtscript
+qtserialport
+qtnetworkauth
+qtwebsockets
+qtwebchannel
+qtquickcontrols
+qtquickcontrols2
+qtgraphicaleffects
+# Qt5 modules for static build
+# Add or remove modules as needed
